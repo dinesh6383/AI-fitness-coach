@@ -1,4 +1,4 @@
-import type { PlanDay } from "../store/Useprotocolstore";
+import type { PlanDay } from "../store/useProtocolStore";
 
 export const DAY_SHORT = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
 export const DAY_FULL = [

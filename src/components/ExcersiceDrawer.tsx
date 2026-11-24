@@ -8,7 +8,7 @@ import {
   type Category,
 } from "../lib/exercises";
 import { DAY_FULL } from "../lib/plantemplates";
-import type { PlanDay } from "../store/Useprotocolstore";
+import type { PlanDay } from "../store/useProtocolStore";
 
 type Props = {
   day: PlanDay;

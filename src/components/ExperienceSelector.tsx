@@ -1,6 +1,6 @@
 import { Medal } from "lucide-react";
 import { EXPERIENCE_LEVELS } from "../lib/biometrics";
-import type { ExperienceLevel } from "../store/Useprotocolstore";
+import type { ExperienceLevel } from "../store/useProtocolStore";
 
 type Props = {
   value: ExperienceLevel;

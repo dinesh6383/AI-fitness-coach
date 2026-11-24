@@ -3,7 +3,7 @@ import type { SessionItem } from "../components/SessionCard";
 import { plannedExercises, plannedSignature } from "../lib/burn";
 import { estimateBurn, type BurnResult } from "../lib/burnApi";
 import { dateKey } from "../lib/Today";
-import { useProtocolStore } from "../store/Useprotocolstore";
+import { useProtocolStore } from "../store/useProtocolStore";
 
 // Shared across renders so React Strict Mode's double effect doesn't send two requests
 const inflight = new Map<string, Promise<BurnResult>>();

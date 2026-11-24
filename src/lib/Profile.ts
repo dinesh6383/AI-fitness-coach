@@ -3,7 +3,7 @@ import type {
   ExperienceLevel,
   Goal,
   PlanDay,
-} from "../store/Useprotocolstore";
+} from "../store/useProtocolStore";
 import { EXPERIENCE_LEVELS } from "./biometrics";
 import { getSplit } from "./splits";
 import { dailyCalories } from "./Today";

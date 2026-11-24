@@ -1,3 +1,5 @@
+import { z } from "zod";
+
 export type GenerateInput = {
   weightKg: number;
   targetWeightKg: number;
@@ -14,6 +16,19 @@ export type GenerateInput = {
 export type GenerateResult =
   | { ok: true; days: { dayIndex: number; exerciseIds: string[] }[] }
   | { ok: false; message: string };
+
+const responseSchema = z.discriminatedUnion("ok", [
+  z.object({
+    ok: z.literal(true),
+    days: z.array(
+      z.object({
+        dayIndex: z.number().int().min(0).max(6),
+        exerciseIds: z.array(z.string()),
+      }),
+    ),
+  }),
+  z.object({ ok: z.literal(false), error: z.string() }),
+]);
 
 const MESSAGES: Record<string, string> = {
   offline: "Cannot reach the local AI endpoint. Check that Vite is running.",
@@ -44,20 +59,19 @@ export async function generatePlan(
   } catch {
     return { ok: false, message: MESSAGES.offline };
   }
-  let data: {
-    ok?: boolean;
-    days?: { dayIndex: number; exerciseIds: string[] }[];
-    error?: string;
-  } | null;
+  let body: unknown;
   try {
-    data = await response.json();
+    body = await response.json();
   } catch {
     return { ok: false, message: MESSAGES.no_proxy };
   }
-  if (response.ok && data?.ok && Array.isArray(data.days))
+  const { data } = responseSchema.safeParse(body);
+  if (response.ok && data?.ok)
     return { ok: true, days: data.days };
   return {
     ok: false,
-    message: MESSAGES[data?.error ?? ""] ?? MESSAGES.upstream_error,
+    message: data?.ok === false
+      ? MESSAGES[data.error] ?? MESSAGES.upstream_error
+      : MESSAGES.upstream_error,
   };
 }

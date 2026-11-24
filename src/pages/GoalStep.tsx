@@ -4,7 +4,7 @@ import { useNavigate } from "react-router-dom";
 import GoalCard from "../components/GoalCard";
 import Header from "../components/Header";
 import SegmentedProgress from "../components/SegmentedProgress";
-import { GOALS } from "../lib/Goals";
+import { GOALS } from "../lib/goals";
 import { useProtocolStore, type Goal } from "../store/useProtocolStore";
 
 const STEP = 2;

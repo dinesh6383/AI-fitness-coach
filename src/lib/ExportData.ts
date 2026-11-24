@@ -1,4 +1,4 @@
-import type { BodyStats, Goal, PlanDay } from "../store/Useprotocolstore";
+import type { BodyStats, Goal, PlanDay } from "../store/useProtocolStore";
 import { getExercise } from "./exercises";
 import { DAY_FULL } from "./plantemplates";
 

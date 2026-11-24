@@ -12,7 +12,7 @@ import {
   APP_VERSION,
   buildProfileSummary,
 } from "../lib/Profile";
-import { useProtocolStore } from "../store/Useprotocolstore";
+import { useProtocolStore } from "../store/useProtocolStore";
 
 export default function ProfilePage() {
   const navigate = useNavigate();

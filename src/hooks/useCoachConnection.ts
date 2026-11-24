@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { connectCoach } from "../lib/coachApi";
-import { useProtocolStore } from "../store/Useprotocolstore";
+import { useProtocolStore } from "../store/useProtocolStore";
 
 export function useCoachConnection() {
   const connected = useProtocolStore((s) => s.coachConnected);

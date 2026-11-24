@@ -1,4 +1,4 @@
-import type { ExperienceLevel, Goal } from "../store/Useprotocolstore";
+import type { ExperienceLevel, Goal } from "../store/useProtocolStore";
 
 export type GoalProfile = {
   blueprint: string; // hero card title

@@ -7,7 +7,7 @@ import {
   TrendingUp,
   type LucideIcon,
 } from "lucide-react";
-import type { Goal } from "../store/Useprotocolstore";
+import type { Goal } from "../store/useProtocolStore";
 
 export type GoalOption = {
   id: Goal;

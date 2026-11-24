@@ -1,5 +1,5 @@
 import { Check } from "lucide-react";
-import type { GoalOption } from "../lib/Goals";
+import type { GoalOption } from "../lib/goals";
 
 type Props = {
   option: GoalOption;

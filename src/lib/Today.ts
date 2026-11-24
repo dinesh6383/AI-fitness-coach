@@ -1,4 +1,4 @@
-import type { BodyStats, Goal } from "../store/Useprotocolstore";
+import type { BodyStats, Goal } from "../store/useProtocolStore";
 import { GOAL_PROFILES } from "./biometrics";
 import type { Exercise } from "./exercises";
 

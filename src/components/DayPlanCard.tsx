@@ -2,7 +2,7 @@ import { CirclePlus, Pencil, X } from "lucide-react";
 import { useState } from "react";
 import { getExercise, iconFor } from "../lib/exercises";
 import { DAY_FULL, DAY_SHORT } from "../lib/plantemplates";
-import type { PlanDay } from "../store/Useprotocolstore";
+import type { PlanDay } from "../store/useProtocolStore";
 
 type Props = {
   index: number;

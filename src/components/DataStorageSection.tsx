@@ -2,7 +2,7 @@ import { Download, Lock, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { downloadWorkoutsJson } from "../lib/ExportData";
-import { useProtocolStore } from "../store/Useprotocolstore";
+import { useProtocolStore } from "../store/useProtocolStore";
 import SectionLabel from "./SectionLabel";
 
 export default function DataStorageSection() {
