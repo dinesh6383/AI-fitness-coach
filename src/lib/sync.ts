@@ -25,7 +25,6 @@ async function requireUser() {
 }
 
 export async function savePlanRemote(plan: PlanDay[]) {
-  const user = await requireUser();
   const { trainingDays, goal, body } = useProtocolStore.getState();
 
   const validDays =
@@ -65,45 +64,20 @@ export async function savePlanRemote(plan: PlanDay[]) {
     throw new Error("Configure exercises for every training day.");
   }
 
-  const profile = {
-    user_id: user.id,
-    training_days: trainingDays.map((day) => WEEKDAYS[day]),
-    goal,
-    current_weight: body.currentWeight,
-    target_weight: body.targetWeight,
-    experience_level: body.experienceLevel,
-  };
-
-  // Save the plan first. The profile is created LAST because
-  // profile existence means onboarding is complete.
-  const keep = plan.map((day) => day.dayIndex);
-
-  const dropQuery = supabase.from("plan_days").delete().eq("user_id", user.id);
-
-  const { error: deleteError } = keep.length
-    ? await dropQuery.not("day_index", "in", `(${keep.join(",")})`)
-    : await dropQuery;
-
-  if (deleteError) throw deleteError;
-
-  const { error: planError } = await supabase.from("plan_days").upsert(
-    plan.map((day) => ({
-      user_id: user.id,
-      day_index: day.dayIndex,
-      name: day.name,
-      exercise_ids: day.exerciseIds,
-      updated_at: new Date().toISOString(),
+  const { error } = await supabase.rpc("save_workout_plan", {
+    p_profile: {
+      goal,
+      current_weight: body.currentWeight,
+      target_weight: body.targetWeight,
+      experience_level: body.experienceLevel,
+    },
+    p_days: plan.map(({ dayIndex, name, exerciseIds }) => ({
+      day_index: dayIndex,
+      name,
+      exercise_ids: exerciseIds,
     })),
-    { onConflict: "user_id,day_index" },
-  );
-
-  if (planError) throw planError;
-
-  const { error: profileError } = await supabase
-    .from("profiles")
-    .upsert(profile, { onConflict: "user_id" });
-
-  if (profileError) throw profileError;
+  });
+  if (error) throw error;
 }
 
 async function saveExerciseLogRemote(
