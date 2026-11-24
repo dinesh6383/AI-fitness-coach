@@ -43,7 +43,6 @@ export default function App() {
             <Route path="/today" element={<TodayPage />} />
 
             <Route path="/tracks" element={<TracksPage />} />
-            <Route path="/progress" element={<ComingSoon title="Progress" />} />
             <Route path="/diet" element={<DietPage />} />
             <Route path="/profile" element={<ProfilePage />} />
 

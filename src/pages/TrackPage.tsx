@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
-import { Check, ChevronLeft, ChevronRight, Dumbbell } from "lucide-react";
+import { Check, Dumbbell } from "lucide-react";
 
+import WeekCalendar, { type CalendarDayStatus } from "../components/WeekCalendar";
+import { startOfDay } from "../lib/weekDates";
 import { getExercise } from "../lib/exercises";
 import { dateKey, getPrescription, todayIndex } from "../lib/Today";
 import { useProtocolStore } from "../store/useProtocolStore";
@@ -12,12 +14,8 @@ import type {
   WorkoutSession,
 } from "../store/useProtocolStore";
 
-const DAY_LABELS = ["MON", "TUE", "WED", "THU", "FRI", "SAT", "SUN"];
-
 const RPE_MIN = 1;
 const RPE_MAX = 15;
-
-type DayStatus = "completed" | "in_progress" | "not_started" | "rest";
 
 type ExerciseHistory = {
   id: string;
@@ -32,28 +30,6 @@ type SessionStats = {
   volume: number;
   avgRpe: number;
 };
-
-function startOfDay(date: Date): Date {
-  const result = new Date(date);
-  result.setHours(0, 0, 0, 0);
-  return result;
-}
-
-function addDays(date: Date, days: number): Date {
-  const result = new Date(date);
-  result.setDate(result.getDate() + days);
-  return result;
-}
-
-function startOfWeek(date: Date): Date {
-  const result = startOfDay(date);
-  result.setDate(result.getDate() - todayIndex(result));
-  return result;
-}
-
-function isSameDay(a: Date, b: Date): boolean {
-  return dateKey(a) === dateKey(b);
-}
 
 function formatWeight(weight: number): string {
   return `${weight.toFixed(1)} kg`;
@@ -116,7 +92,7 @@ function buildExerciseHistory(
 function getDayStatus(
   dayPlan: PlanDay | undefined,
   exercises: ExerciseHistory[],
-): DayStatus {
+): CalendarDayStatus {
   if (!dayPlan || dayPlan.exerciseIds.length === 0) {
     return "rest";
   }
@@ -190,134 +166,6 @@ function calculateSessionStats(
     volume,
     avgRpe,
   };
-}
-
-function WeekCalendar({
-  weekStart,
-  selectedDate,
-  today,
-  onSelectDate,
-  onPreviousWeek,
-  onNextWeek,
-  getStatus,
-}: {
-  weekStart: Date;
-  selectedDate: Date;
-  today: Date;
-  onSelectDate: (date: Date) => void;
-  onPreviousWeek: () => void;
-  onNextWeek: () => void;
-  getStatus: (date: Date) => DayStatus;
-}) {
-  const days = Array.from({ length: 7 }, (_, index) =>
-    addDays(weekStart, index),
-  );
-
-  const canGoNext = dateKey(addDays(weekStart, 7)) <= dateKey(today);
-
-  const monthLabel = weekStart.toLocaleDateString("en-US", {
-    month: "short",
-    year: "numeric",
-  });
-
-  return (
-    <section className="space-y-3">
-      <div className="flex items-center gap-3">
-        <Dumbbell size={24} className="text-[#88F9C0]" />
-        <h1 className="text-3xl font-extrabold">TRACKS</h1>
-      </div>
-      <div className="flex items-center justify-end">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={onPreviousWeek}
-            aria-label="Previous week"
-            className="flex size-8 items-center justify-center rounded-lg bg-surface text-zinc-300 transition hover:text-white"
-          >
-            <ChevronLeft size={17} />
-          </button>
-
-          <span className="min-w-19 text-center text-[10px] font-semibold text-zinc-400">
-            {monthLabel}
-          </span>
-
-          <button
-            type="button"
-            onClick={onNextWeek}
-            disabled={!canGoNext}
-            aria-label="Next week"
-            className="flex size-8 items-center justify-center rounded-lg bg-surface text-zinc-300 transition hover:text-white disabled:cursor-not-allowed disabled:opacity-25"
-          >
-            <ChevronRight size={17} />
-          </button>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-7 gap-1.5">
-        {days.map((date, index) => {
-          const selected = isSameDay(date, selectedDate);
-          const future = dateKey(date) > dateKey(today);
-          const status = getStatus(date);
-
-          const completed = status === "completed";
-          const inProgress = status === "in_progress";
-
-          return (
-            <button
-              key={dateKey(date)}
-              type="button"
-              disabled={future}
-              onClick={() => onSelectDate(date)}
-              aria-label={date.toDateString()}
-              aria-pressed={selected}
-              className={[
-                "flex min-w-0 flex-col items-center rounded-xl px-0.5 py-2",
-                "transition-colors focus-visible:outline-2 focus-visible:outline-mint",
-                selected
-                  ? "bg-brand text-white shadow-lg shadow-brand/25"
-                  : "bg-surface text-zinc-200",
-                future ? "cursor-not-allowed opacity-35" : "cursor-pointer",
-              ].join(" ")}
-            >
-              <span className="text-[8px] font-bold uppercase text-zinc-300">
-                {DAY_LABELS[index]}
-              </span>
-
-              <span className="mt-1 text-[13px] font-extrabold">
-                {date.getDate()}
-              </span>
-
-              <span
-                className={[
-                  "mt-1 flex size-4 items-center justify-center rounded-full",
-                  completed
-                    ? selected
-                      ? "bg-[#01010D] text-mint"
-                      : "bg-mint/15 text-mint"
-                    : "bg-transparent",
-                ].join(" ")}
-              >
-                {completed ? (
-                  <Check size={11} strokeWidth={3} />
-                ) : (
-                  <span
-                    className={[
-                      "size-1.5 rounded-full",
-                      inProgress
-                        ? "bg-brand-soft"
-                        : selected
-                          ? "bg-white/50"
-                          : "bg-zinc-700",
-                    ].join(" ")}
-                  />
-                )}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </section>
-  );
 }
 
 function SessionSummary({ stats }: { stats: SessionStats }) {
@@ -451,7 +299,6 @@ export default function TracksPage() {
   const body = useProtocolStore((state) => state.body);
 
   const today = startOfDay(new Date());
-  const weekStart = startOfWeek(selectedDate);
   const selectedKey = dateKey(selectedDate);
 
   const bodyWeight =
@@ -512,7 +359,7 @@ export default function TracksPage() {
     [selectedExercises, bodyWeight, selectedSession, clockNow],
   );
 
-  const getStatusForDate = (date: Date): DayStatus => {
+  const getStatusForDate = (date: Date): CalendarDayStatus => {
     const dayPlan = plan.find((day) => day.dayIndex === todayIndex(date));
 
     const logs = workoutLog[dateKey(date)] ?? {};
@@ -520,24 +367,6 @@ export default function TracksPage() {
     const exercises = buildExerciseHistory(dayPlan, logs, bodyWeight);
 
     return getDayStatus(dayPlan, exercises);
-  };
-
-  const handlePreviousWeek = () => {
-    setSelectedDate(addDays(weekStart, -7));
-  };
-
-  const handleNextWeek = () => {
-    const nextWeekStart = addDays(weekStart, 7);
-
-    if (dateKey(nextWeekStart) > dateKey(today)) {
-      return;
-    }
-
-    setSelectedDate(
-      dateKey(nextWeekStart) === dateKey(startOfWeek(today))
-        ? today
-        : nextWeekStart,
-    );
   };
 
   const selectedStatus = getDayStatus(selectedPlan, selectedExercises);
@@ -549,12 +378,15 @@ export default function TracksPage() {
   return (
     <main className="min-h-screen space-y-4 bg-canvas px-3 pb-8 pt-5 text-white">
       <WeekCalendar
-        weekStart={weekStart}
+        heading={
+          <div className="flex items-center gap-3">
+            <Dumbbell size={24} className="text-[#88F9C0]" />
+            <h1 className="text-3xl font-extrabold">TRACKS</h1>
+          </div>
+        }
         selectedDate={selectedDate}
         today={today}
         onSelectDate={setSelectedDate}
-        onPreviousWeek={handlePreviousWeek}
-        onNextWeek={handleNextWeek}
         getStatus={getStatusForDate}
       />
 

@@ -1,3 +1,4 @@
+import { MAX_DIET_PHOTO_BYTES } from "../src/lib/dietNutrition.ts";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import type { Plugin } from "vite";
 
@@ -18,8 +19,20 @@ export async function handleNodeRequest(
     else if (Array.isArray(value)) headers.set(key, value.join(", "));
   }
 
+  const isDietPhoto = req.url?.split("?")[0]?.replace(/\/$/, "") === "/diet-photo";
   const chunks: Buffer[] = [];
-  for await (const chunk of req) chunks.push(Buffer.from(chunk));
+  let bytes = 0;
+  for await (const chunk of req) {
+    const buffer = Buffer.from(chunk);
+    bytes += buffer.byteLength;
+    if (!isDietPhoto || bytes <= MAX_DIET_PHOTO_BYTES) chunks.push(buffer);
+  }
+
+  if (isDietPhoto && bytes > MAX_DIET_PHOTO_BYTES) {
+    res.statusCode = 413;
+    res.end();
+    return;
+  }
   const hasBody = method !== "GET" && method !== "HEAD";
 
   const request = new Request(
@@ -27,7 +40,7 @@ export async function handleNodeRequest(
     {
       method,
       headers,
-      body: hasBody ? Buffer.concat(chunks).toString("utf8") : undefined,
+      body: hasBody ? Uint8Array.from(Buffer.concat(chunks)) : undefined,
     },
   );
 

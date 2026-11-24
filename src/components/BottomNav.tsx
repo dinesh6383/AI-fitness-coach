@@ -1,40 +1,15 @@
 import { Dumbbell, Sparkles, Soup, User, type LucideIcon } from "lucide-react";
 import { NavLink } from "react-router-dom";
 
-type IconProps = { size?: number; className?: string };
-
-/** Zig-zag trend line with a magnifier, matching the Progress icon in the design. */
-function ProgressIcon({ size = 20, className }: IconProps) {
-  return (
-    <svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className={className}
-    >
-      <polyline points="3 17 8 10 12 14 16 6 19 9" />
-      <circle cx="17" cy="16" r="3" />
-      <line x1="19.2" y1="18.2" x2="22" y2="21" />
-    </svg>
-  );
-}
-
 type Tab = {
   to: string;
   label: string;
-  icon: LucideIcon | ((props: IconProps) => React.JSX.Element);
+  icon: LucideIcon;
 };
 
 const TABS: Tab[] = [
   { to: "/today", label: "Today", icon: Sparkles },
   { to: "/tracks", label: "Tracks", icon: Dumbbell },
-  { to: "/progress", label: "Progress", icon: ProgressIcon },
   { to: "/diet", label: "Diet", icon: Soup },
   { to: "/profile", label: "Profile", icon: User },
 ];
