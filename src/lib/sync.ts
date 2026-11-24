@@ -133,7 +133,8 @@ export async function hydrateFromSupabase(
   isActive: () => boolean,
 ) {
   const user = await requireUser();
-  if (!isActive() || user.id !== userId) return;
+  if (!isActive()) return;
+  if (user.id !== userId) throw new Error("Signed-in account changed while loading.");
 
   const store = useProtocolStore.getState();
   const pending = useWorkoutSyncStore.getState().pending[userId] ?? {};

@@ -1,9 +1,11 @@
 import type { Session, User } from "@supabase/supabase-js";
 import {
   createContext,
+  useCallback,
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
@@ -39,14 +41,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     error: null,
   });
 
+  const currentUserId = useRef<string | null>(null);
+  const loadVersion = useRef(0);
+
   useEffect(() => {
     let active = true;
+    const updateSession = (next: Session | null) => {
+      const nextUserId = next?.user.id ?? null;
+      if (currentUserId.current !== nextUserId) {
+        currentUserId.current = nextUserId;
+        loadVersion.current += 1;
+      }
+      setSession(next);
+      setLoading(false);
+    };
 
     void supabase.auth.getSession().then(({ data, error }) => {
       if (!active) return;
       if (error) console.error("Session restore failed", error);
-      setSession(data.session);
-      setLoading(false);
+      updateSession(data.session);
     });
 
     const { data: sub } = supabase.auth.onAuthStateChange((event, next) => {
@@ -54,8 +67,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (event === "SIGNED_OUT") {
         useProtocolStore.getState().reset();
       }
-      setSession(next);
-      setLoading(false);
+      updateSession(next);
     });
 
     return () => {
@@ -66,65 +78,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const userId = session?.user.id ?? null;
 
-  useEffect(() => {
-    if (!userId) return;
+  const refreshOnboarding = useCallback(async () => {
+    if (!userId || currentUserId.current !== userId) {
+      throw new Error("Not signed in");
+    }
 
-    let active = true;
-    const retry = () => void retryWorkoutSync(userId);
-    window.addEventListener("online", retry);
+    const version = ++loadVersion.current;
+    const isCurrent = () =>
+      currentUserId.current === userId && loadVersion.current === version;
 
-    const check = async () => {
-      try {
-        const completed = await hasCompletedOnboarding(userId);
-        if (!active) return;
+    setOnboarding({ userId, status: "checking", error: null });
 
-        setOnboarding({
-          userId,
-          status: completed ? "complete" : "incomplete",
-          error: null,
-        });
-
-        if (completed) {
-          try {
-            await hydrateFromSupabase(userId, () => active);
-          } catch (error) {
-            console.error("Couldn't load saved data", error);
-          }
-          if (active) retry();
-        }
-      } catch (error) {
-        if (!active) return;
-
-        setOnboarding({
-          userId,
-          status: "error",
-          error:
-            error instanceof Error
-              ? error.message
-              : "Unable to check your profile.",
-        });
-      }
-    };
-
-    void check();
-
-    return () => {
-      active = false;
-      window.removeEventListener("online", retry);
-    };
-  }, [userId]);
-
-  const refreshOnboarding = async () => {
-    if (!userId) throw new Error("Not signed in");
-
-    setOnboarding({
-      userId,
-      status: "checking",
-      error: null,
-    });
-
+    let completed = false;
     try {
-      const completed = await hasCompletedOnboarding(userId);
+      completed = await hasCompletedOnboarding(userId);
+      if (!isCurrent()) return;
+
+      if (completed) await hydrateFromSupabase(userId, isCurrent);
+      if (!isCurrent()) return;
 
       setOnboarding({
         userId,
@@ -132,25 +103,50 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         error: null,
       });
     } catch (error) {
+      if (!isCurrent()) return;
+
+      console.error("Couldn't load account data", error);
       setOnboarding({
         userId,
         status: "error",
-        error:
-          error instanceof Error
-            ? error.message
-            : "Unable to check your profile.",
+        error: completed
+          ? "Couldn't load your saved workout plan and logs. Please try again."
+          : "Couldn't check your profile. Please try again.",
       });
       throw error;
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    let active = true;
+    queueMicrotask(() => {
+      if (active) void refreshOnboarding().catch(() => {});
+    });
+    return () => {
+      active = false;
+      loadVersion.current += 1;
+    };
+  }, [userId, refreshOnboarding]);
+
+  const onboardingStatus =
+    onboarding.userId === userId ? onboarding.status : "checking";
+
+  useEffect(() => {
+    if (!userId || onboardingStatus !== "complete") return;
+
+    const retry = () => void retryWorkoutSync(userId);
+    retry();
+    window.addEventListener("online", retry);
+    return () => window.removeEventListener("online", retry);
+  }, [userId, onboardingStatus]);
 
   const value = useMemo<AuthContextValue>(
     () => ({
       session,
       user: session?.user ?? null,
       loading,
-      onboardingStatus:
-        onboarding.userId === userId ? onboarding.status : "checking",
+      onboardingStatus,
       onboardingError: onboarding.userId === userId ? onboarding.error : null,
       refreshOnboarding,
       signOut: async () => {
@@ -158,8 +154,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (error) throw error;
       },
     }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [session, loading, onboarding, userId],
+    [session, loading, onboarding, onboardingStatus, userId, refreshOnboarding],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

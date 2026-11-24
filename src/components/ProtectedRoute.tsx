@@ -40,7 +40,7 @@ export default function ProtectedRoute() {
     return (
       <main className="grid min-h-screen place-items-center px-5">
         <div className="max-w-sm space-y-4 text-center">
-          <h1 className="text-xl font-bold">Couldn't load your profile</h1>
+          <h1 className="text-xl font-bold">Account data unavailable</h1>
           <p role="alert" className="text-sm text-red-400">
             {onboardingError}
           </p>
