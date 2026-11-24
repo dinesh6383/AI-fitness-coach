@@ -8,7 +8,7 @@ import {
   type ReactNode,
 } from "react";
 import { supabase } from "./supabase";
-import { hydrateFromSupabase } from "./sync";
+import { hydrateFromSupabase, retryWorkoutSync } from "./sync";
 import { hasCompletedOnboarding } from "./profileStatus";
 import { useProtocolStore } from "../store/useProtocolStore";
 
@@ -70,6 +70,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!userId) return;
 
     let active = true;
+    const retry = () => void retryWorkoutSync(userId);
+    window.addEventListener("online", retry);
 
     const check = async () => {
       try {
@@ -84,10 +86,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
         if (completed) {
           try {
-            await hydrateFromSupabase();
+            await hydrateFromSupabase(userId, () => active);
           } catch (error) {
             console.error("Couldn't load saved data", error);
           }
+          if (active) retry();
         }
       } catch (error) {
         if (!active) return;
@@ -107,6 +110,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     return () => {
       active = false;
+      window.removeEventListener("online", retry);
     };
   }, [userId]);
 

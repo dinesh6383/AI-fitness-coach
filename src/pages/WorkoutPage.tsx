@@ -13,6 +13,7 @@ import {
   toBurnExercise,
 } from "../lib/burn";
 
+import { useAuth } from "../lib/AuthProvider";
 import { estimateBurn } from "../lib/burnApi";
 import { getExercise } from "../lib/exercises";
 import { dateKey, getPrescription, todayIndex } from "../lib/Today";
@@ -25,6 +26,7 @@ import {
 
 export default function WorkoutPage() {
   const navigate = useNavigate();
+  const { session } = useAuth();
 
   const [searchParams] = useSearchParams();
   const selectedExerciseId = searchParams.get("exercise");
@@ -37,7 +39,8 @@ export default function WorkoutPage() {
   const persistExerciseLog = (exerciseId: string, log: ExerciseLog) => {
     saveExerciseLog(date, exerciseId, log);
 
-    void queueExerciseLogRemote(date, exerciseId, log).catch((error) => {
+    if (!session) return;
+    void queueExerciseLogRemote(session.user.id, date, exerciseId, log).catch((error) => {
       console.error("Failed to sync workout log:", error);
     });
   };

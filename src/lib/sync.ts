@@ -1,3 +1,5 @@
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import { supabase } from "./supabase";
 import {
   useProtocolStore,
@@ -104,15 +106,18 @@ export async function savePlanRemote(plan: PlanDay[]) {
   if (profileError) throw profileError;
 }
 
-/** Save one exercise's logged sets (call from saveExerciseLog's caller). */
-export async function saveExerciseLogRemote(
+async function saveExerciseLogRemote(
+  userId: string,
   date: string,
   exerciseId: string,
   log: ExerciseLog,
 ) {
-  const user = await requireUser();
+  const { data, error: sessionError } = await supabase.auth.getSession();
+  if (sessionError || data.session?.user.id !== userId) {
+    throw new Error("Workout sync requires the original signed-in account.");
+  }
   const { error } = await supabase.from("workout_logs").upsert({
-    user_id: user.id,
+    user_id: userId,
     log_date: date,
     exercise_id: exerciseId,
     sets: log.sets,
@@ -123,8 +128,19 @@ export async function saveExerciseLogRemote(
 }
 
 /** Load everything into the store, e.g. on a new device. */
-export async function hydrateFromSupabase() {
+export async function hydrateFromSupabase(
+  userId: string,
+  isActive: () => boolean,
+) {
   const user = await requireUser();
+  if (!isActive() || user.id !== userId) return;
+
+  const store = useProtocolStore.getState();
+  const pending = useWorkoutSyncStore.getState().pending[userId] ?? {};
+  for (const { date, exerciseId, log } of Object.values(pending)) {
+    store.saveExerciseLog(date, exerciseId, log);
+  }
+  const logsAtStart = useProtocolStore.getState().workoutLog;
   const [profileRes, daysRes, logsRes] = await Promise.all([
     supabase.from("profiles").select("*").eq("user_id", user.id).maybeSingle(),
     supabase
@@ -134,6 +150,8 @@ export async function hydrateFromSupabase() {
       .order("day_index"),
     supabase.from("workout_logs").select("*").eq("user_id", user.id),
   ]);
+
+  if (!isActive()) return;
 
   // Don't overwrite local data with nothing if a request failed
   if (profileRes.error) throw profileRes.error;
@@ -171,37 +189,83 @@ export async function hydrateFromSupabase() {
       })),
     );
   }
-  logs?.forEach((l) =>
-    s.saveExerciseLog(l.log_date, l.exercise_id, {
-      sets: l.sets,
-      kcal: l.kcal,
-    }),
-  );
+  const latestPending = useWorkoutSyncStore.getState().pending[userId] ?? {};
+  for (const { log_date: date, exercise_id: exerciseId, sets, kcal } of logs ?? []) {
+    const key = `${date}:${exerciseId}`;
+    if (
+      pending[key] ||
+      latestPending[key] ||
+      s.workoutLog[date]?.[exerciseId] !== logsAtStart[date]?.[exerciseId]
+    ) {
+      continue;
+    }
+    s.saveExerciseLog(date, exerciseId, { sets, kcal });
+  }
 }
 
-const pendingLogSaves = new Map<string, Promise<void>>();
+type PendingLog = { date: string; exerciseId: string; log: ExerciseLog };
+type WorkoutSyncState = {
+  pending: Record<string, Record<string, PendingLog>>;
+};
+
+export const useWorkoutSyncStore = create<WorkoutSyncState>()(
+  persist(() => ({ pending: {} }), { name: "workout-log-sync" }),
+);
+
+const pendingLogSaves = new Map<
+  string,
+  { entry: PendingLog; promise: Promise<void> }
+>();
+
+function syncExerciseLog(userId: string, key: string, entry: PendingLog) {
+  const requestKey = `${userId}:${key}`;
+  const previous = pendingLogSaves.get(requestKey);
+  if (previous?.entry === entry) return previous.promise;
+
+  const promise = (previous?.promise ?? Promise.resolve())
+    .catch(() => undefined)
+    .then(async () => {
+      if (useWorkoutSyncStore.getState().pending[userId]?.[key] !== entry) return;
+      await saveExerciseLogRemote(userId, entry.date, entry.exerciseId, entry.log);
+
+      useWorkoutSyncStore.setState(({ pending }) => {
+        const userLogs = pending[userId];
+        if (userLogs?.[key] !== entry) return { pending };
+        const remaining = { ...userLogs };
+        delete remaining[key];
+        return { pending: { ...pending, [userId]: remaining } };
+      });
+    })
+    .finally(() => {
+      if (pendingLogSaves.get(requestKey)?.promise === promise) {
+        pendingLogSaves.delete(requestKey);
+      }
+    });
+
+  pendingLogSaves.set(requestKey, { entry, promise });
+  return promise;
+}
 
 export function queueExerciseLogRemote(
+  userId: string,
   date: string,
   exerciseId: string,
   log: ExerciseLog,
-): Promise<void> {
+) {
   const key = `${date}:${exerciseId}`;
-  const previous = pendingLogSaves.get(key) ?? Promise.resolve();
+  const entry = { date, exerciseId, log };
+  useWorkoutSyncStore.setState(({ pending }) => ({
+    pending: {
+      ...pending,
+      [userId]: { ...pending[userId], [key]: entry },
+    },
+  }));
+  return syncExerciseLog(userId, key, entry);
+}
 
-  const next = previous
-    .catch(() => undefined)
-    .then(() => saveExerciseLogRemote(date, exerciseId, log));
-
-  pendingLogSaves.set(key, next);
-
-  void next
-    .finally(() => {
-      if (pendingLogSaves.get(key) === next) {
-        pendingLogSaves.delete(key);
-      }
-    })
-    .catch(() => undefined);
-
-  return next;
+export async function retryWorkoutSync(userId: string) {
+  const pending = useWorkoutSyncStore.getState().pending[userId] ?? {};
+  await Promise.allSettled(
+    Object.entries(pending).map(([key, entry]) => syncExerciseLog(userId, key, entry)),
+  );
 }

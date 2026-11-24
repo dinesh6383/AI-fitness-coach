@@ -1,5 +1,6 @@
 import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../lib/AuthProvider";
+import { retryWorkoutSync, useWorkoutSyncStore } from "../lib/sync";
 
 export default function ProtectedRoute() {
   const {
@@ -11,6 +12,10 @@ export default function ProtectedRoute() {
   } = useAuth();
 
   const location = useLocation();
+  const hasPendingLogs = useWorkoutSyncStore((state) => {
+    const pending = session && state.pending[session.user.id];
+    return Boolean(pending && Object.keys(pending).length);
+  });
 
   if (loading || (session && onboardingStatus === "checking")) {
     return (
@@ -61,5 +66,21 @@ export default function ProtectedRoute() {
     return <Navigate to="/today" replace />;
   }
 
-  return <Outlet />;
+  return (
+    <>
+      {hasPendingLogs && (
+        <aside className="flex items-center justify-between gap-3 bg-surface px-4 py-2 text-sm">
+          <p role="status">Workout changes are waiting to sync.</p>
+          <button
+            type="button"
+            className="shrink-0 rounded-lg px-3 py-2 font-bold text-brand"
+            onClick={() => void retryWorkoutSync(session.user.id)}
+          >
+            Retry sync
+          </button>
+        </aside>
+      )}
+      <Outlet />
+    </>
+  );
 }
